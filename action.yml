@@ -57,7 +57,7 @@ runs:
     - name: Setup Python
       uses: ChristopherHX/conditional@main
       with:
-        if: ${{ inputs.install-python == 'true' && (runner.os != "macOS" || inputs.homebrew-python != 'true') }}
+        if: ${{ inputs.install-python == 'true' && (runner.os != 'macOS'|| inputs.homebrew-python != 'true') }}
         step: |
           uses: actions/setup-python@v2
           with:
@@ -93,7 +93,7 @@ runs:
     - name: Install PyBuilder
       shell: bash
       run: |
-        if ! [ '${{inputs.install-pyb == 'true' ]; then exit 0; fi
+        if ! [ '${{inputs.install-pyb}}' == 'true' ]; then exit 0; fi
         python -m pip install pybuilder${{ inputs.pyb-version }}
     - name: Build
       shell: bash
