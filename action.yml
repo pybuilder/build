@@ -48,25 +48,35 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v2
-      if: inputs.checkout == 'true'
-    - name: Setup Python
-      uses: actions/setup-python@v2
-      if: inputs.install-python == 'true' && (runner.os != "macOS" || inputs.homebrew-python != 'true')
+    - name: Checkout
+      uses: ChristopherHX/conditional@main
       with:
-        python-version: ${{ inputs.python-version }}
-        architecture: ${{ inputs.architecture }}
+        if: ${{inputs.checkout == 'true'}}
+        step: |
+          uses: actions/checkout@v2
+    - name: Setup Python
+      uses: ChristopherHX/conditional@main
+      with:
+        if: ${{ inputs.install-python == 'true' && (runner.os != "macOS" || inputs.homebrew-python != 'true') }}
+        step: |
+          uses: actions/setup-python@v2
+          with:
+            python-version: ${{ inputs.python-version }}
+            architecture: ${{ inputs.architecture }}
     - name: Setup Python with Homebrew
-      if: inputs.install-python == 'true' && runner.os == "macOS" && inputs.homebrew-python == 'true'
       shell: bash
       run: |
+        if ! [ '${{inputs.install-python}}' == 'true' && \
+             '${{runner.os}}' == 'macOS' && \
+             '${{inputs.homebrew-python}}' == 'true' ]; then exit 0; fi
+
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew install python@${{ inputs.python-version }}
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
     - name: Create VEnv
-      if: inputs.with-venv == 'true'
       shell: bash
       run: |
+        if ! [ '${{inputs.with-venv}}' == 'true' ]; then exit 0; fi
         python -m pip install virtualenv
         cat $GITHUB_PATH
         virtualenv $HOME/.pyb
@@ -82,11 +92,9 @@ runs:
         python -m pip --version
     - name: Install PyBuilder
       shell: bash
-      if: inputs.install-pyb == 'true'
       run: |
+        if ! [ '${{inputs.install-pyb == 'true' ]; then exit 0; fi
         python -m pip install pybuilder${{ inputs.pyb-version }}
     - name: Build
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }}
