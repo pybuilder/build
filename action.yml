@@ -1,0 +1,92 @@
+name: 'PyBuilder'
+description: 'PyBuilder GitHub Action'
+inputs:
+  checkout:
+    description: 'Do checkout first'
+    required: false
+    default: 'true'
+  install-python:
+    description: 'Whether to install Python'
+    required: false
+    default: 'true'
+  homebrew-python:
+    description: 'Whether Python should be installed via Homebrew'
+    required: false
+    default: 'false'
+  python-version:
+    description: 'Python version to use, if installing'
+    required: false
+    default: '3.9'
+  architecture:
+    description: "Python architecture"
+    required: false
+    default: x64
+  with-venv:
+    description: 'Whether to use VirtualEnv during a build'
+    required: false
+    default: 'true'
+  install-pyb:
+    description: 'Install PyBuilder'
+    required: false
+    default: 'true'
+  pyb-version:
+    description: 'PyBuilder version to install'
+    required: false
+    default: '>=0.12.0'
+  pyb-command:
+    description: 'Command to run PyBuilder'
+    required: false
+    default: 'pyb'
+  pyb-args:
+    description: 'PyBuilder arguments'
+    required: false
+    default: "-E ci -v -X analyze install"
+  pyb-extra-args:
+    description: 'PyBuilder extra arguments'
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v2
+      if: inputs.checkout == 'true'
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      if: inputs.install-python == 'true' && (runner.os != "macOS" || inputs.homebrew-python != 'true')
+      with:
+        python-version: ${{ inputs.python-version }}
+        architecture: ${{ inputs.architecture }}
+    - name: Setup Python with Homebrew
+      if: inputs.install-python == 'true' && runner.os == "macOS" && inputs.homebrew-python == 'true'
+      shell: bash
+      run: |
+        bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew install python@${{ inputs.python-version }}
+        echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
+    - name: Create VEnv
+      if: inputs.with-venv == 'true'
+      shell: bash
+      run: |
+        python -m pip install virtualenv
+        cat $GITHUB_PATH
+        virtualenv $HOME/.pyb
+        echo "$HOME/.pyb/bin" >> $GITHUB_PATH
+        cat $GITHUB_PATH
+    - name: Python Check
+      shell: bash
+      run: |
+        pwd
+        env
+        which python
+        python --version
+        python -m pip --version
+    - name: Install PyBuilder
+      shell: bash
+      if: inputs.install-pyb == 'true'
+      run: |
+        python -m pip install pybuilder${{ inputs.pyb-version }}
+    - name: Build
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }}
