@@ -68,22 +68,20 @@ runs:
       run: |
         if ! [ '${{inputs.install-python}}' == 'true' -a '${{runner.os}}' == 'macOS' -a '${{inputs.homebrew-python}}' == 'true' ]; then exit 0; fi
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        brew install python@${{ inputs.python-version }}
+        brew reinstall python@${{ inputs.python-version }}
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
+        echo "/usr/local/opt/python@${{ inputs.python-version }}/libexec/bin" >> $GITHUB_PATH
     - name: Create VEnv
       shell: bash
       run: |
         if ! [ '${{inputs.with-venv}}' == 'true' ]; then exit 0; fi
         python -m pip install virtualenv
-        cat $GITHUB_PATH
         virtualenv $HOME/.pyb
         echo "$HOME/.pyb/bin" >> $GITHUB_PATH
-        cat $GITHUB_PATH
     - name: Python Check
       shell: bash
       run: |
         pwd
-        env
         which python
         python --version
         python -m pip --version
