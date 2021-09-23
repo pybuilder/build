@@ -32,7 +32,7 @@ inputs:
   pyb-version:
     description: 'PyBuilder version to install'
     required: false
-    default: '>=0.12.0'
+    default: '\\>=0.12.0'
   pyb-command:
     description: 'Command to run PyBuilder'
     required: false
