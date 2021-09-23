@@ -94,6 +94,8 @@ runs:
       run: |
         if ! [ '${{inputs.install-pyb}}' == 'true' ]; then exit 0; fi
         $PYTHON -m pip install pybuilder${{ inputs.pyb-version }}
+        which pyb
+        pyb --version
     - name: Build
       shell: bash
       run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }}
