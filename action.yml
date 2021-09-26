@@ -1,4 +1,4 @@
-name: 'pybuilder'
+name: 'PyBuilder Action'
 description: 'PyBuilder Composite GitHub Action'
 branding:
   icon: zap
