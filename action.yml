@@ -1,5 +1,8 @@
-name: 'PyBuilder'
-description: 'PyBuilder GitHub Action'
+name: 'pybuilder'
+description: 'PyBuilder Composite GitHub Action'
+branding:
+  icon: zap
+  color: blue
 inputs:
   checkout:
     description: 'Do checkout first'
@@ -18,11 +21,11 @@ inputs:
     required: false
     default: '3.9'
   architecture:
-    description: "Python architecture"
+    description: 'Install Python for specific architecture, if installing'
     required: false
     default: x64
   with-venv:
-    description: 'Whether to use VirtualEnv during a build'
+    description: 'Whether to use Virtualenv during a build'
     required: false
     default: 'true'
   install-pyb:
@@ -93,7 +96,7 @@ runs:
       shell: bash
       run: |
         if ! [ '${{inputs.install-pyb}}' == 'true' ]; then exit 0; fi
-        $PYTHON -m pip install pybuilder${{ inputs.pyb-version }}
+        $PYTHON -m pip install 'pybuilder${{ inputs.pyb-version }}'
         which pyb
         pyb --version
     - name: Build
