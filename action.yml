@@ -55,6 +55,7 @@ runs:
       shell: bash
       run: |
         PV='${{inputs.python-version}}'
+        PV="${PV##pypy-}"
         echo "PYTHON=python${PV%%.*}" >> $GITHUB_ENV
     - name: Checkout
       uses: ChristopherHX/conditional@main
