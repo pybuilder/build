@@ -70,14 +70,14 @@ runs:
         step: |
           uses: actions/setup-python@v2
           with:
-            python-version: ${{ inputs.python-version }}
-            architecture: ${{ inputs.architecture }}
+            python-version: '${{ inputs.python-version }}'
+            architecture: '${{ inputs.architecture }}'
     - name: Setup Python with Homebrew
       shell: bash
       run: |
         if ! [ '${{inputs.install-python}}' == 'true' -a '${{runner.os}}' == 'macOS' -a '${{inputs.homebrew-python}}' == 'true' ]; then exit 0; fi
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        brew reinstall python@${{ inputs.python-version }}
+        brew reinstall 'python@${{ inputs.python-version }}'
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
     - name: Create VEnv
       shell: bash
