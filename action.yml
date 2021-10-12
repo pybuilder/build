@@ -43,7 +43,7 @@ inputs:
   pyb-args:
     description: 'PyBuilder command line arguments'
     required: false
-    default: "-E ci -v -X analyze install"
+    default: "-E ci -v -X"
   pyb-extra-args:
     description: 'PyBuilder extra command line arguments'
     required: false
