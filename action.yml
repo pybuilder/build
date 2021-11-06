@@ -58,31 +58,25 @@ runs:
         PV="${PV##pypy-}"
         echo "PYTHON=python${PV%%.*}" >> $GITHUB_ENV
     - name: Checkout
-      uses: ChristopherHX/conditional@main
-      with:
-        if: ${{inputs.checkout == 'true'}}
-        step: |
-          uses: actions/checkout@v2
+      if: inputs.checkout == 'true'
+      uses: actions/checkout@v2
     - name: Setup Python
-      uses: ChristopherHX/conditional@main
+      if: inputs.install-python == 'true' && (runner.os != 'macOS' || inputs.homebrew-python != 'true')
+      uses: actions/setup-python@v2
       with:
-        if: ${{ inputs.install-python == 'true' && (runner.os != 'macOS'|| inputs.homebrew-python != 'true') }}
-        step: |
-          uses: actions/setup-python@v2
-          with:
-            python-version: '${{ inputs.python-version }}'
-            architecture: '${{ inputs.architecture }}'
+        python-version: '${{ inputs.python-version }}'
+        architecture: '${{ inputs.architecture }}'
     - name: Setup Python with Homebrew
       shell: bash
+      if: inputs.install-python == 'true' && runner.os == 'macOS' && inputs.homebrew-python == 'true'
       run: |
-        if ! [ '${{inputs.install-python}}' == 'true' -a '${{runner.os}}' == 'macOS' -a '${{inputs.homebrew-python}}' == 'true' ]; then exit 0; fi
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew reinstall 'python@${{ inputs.python-version }}'
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
     - name: Create VEnv
       shell: bash
+      if: inputs.with-venv == 'true'
       run: |
-        if ! [ '${{inputs.with-venv}}' == 'true' ]; then exit 0; fi
         $PYTHON -m pip install virtualenv
         virtualenv $HOME/.pyb
         echo "$HOME/.pyb/bin" >> $GITHUB_PATH
@@ -95,8 +89,8 @@ runs:
         $PYTHON -m pip --version
     - name: Install PyBuilder
       shell: bash
+      if: inputs.install-pyb == 'true'
       run: |
-        if ! [ '${{inputs.install-pyb}}' == 'true' ]; then exit 0; fi
         $PYTHON -m pip install 'pybuilder${{ inputs.pyb-version }}'
         which pyb
         pyb --version
