@@ -72,7 +72,17 @@ runs:
       run: |
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         brew reinstall 'python@${{ inputs.python-version }}'
+        echo "/usr/local/opt/python@${{ inputs.python-version }}/Frameworks/Python.framework/Versions/${{ inputs.python-version }}/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
+    - name: Python Pre-VENV Check
+      shell: bash
+      run: |
+        pwd
+        echo $PATH
+        which $PYTHON
+        $PYTHON --version
+        $PYTHON -m pip --version
+        # $PYTHON -c "import sysconfig; import pprint; pprint.pprint(sysconfig.get_config_vars())"
     - name: Create VEnv
       shell: bash
       if: inputs.with-venv == 'true'
@@ -80,13 +90,15 @@ runs:
         $PYTHON -m pip install virtualenv
         virtualenv $HOME/.pyb
         echo "$HOME/.pyb/bin" >> $GITHUB_PATH
-    - name: Python Check
+    - name: Python Post-VENV Check
       shell: bash
       run: |
         pwd
+        echo $PATH
         which $PYTHON
         $PYTHON --version
         $PYTHON -m pip --version
+        # $PYTHON -c "import sysconfig; import pprint; pprint.pprint(sysconfig.get_config_vars())"
     - name: Install PyBuilder
       shell: bash
       if: inputs.install-pyb == 'true'
