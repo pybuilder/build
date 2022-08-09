@@ -59,10 +59,10 @@ runs:
         echo "PYTHON=python${PV%%.*}" >> $GITHUB_ENV
     - name: Checkout
       if: inputs.checkout == 'true'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Setup Python
       if: inputs.install-python == 'true' && (runner.os != 'macOS' || inputs.homebrew-python != 'true')
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '${{ inputs.python-version }}'
         architecture: '${{ inputs.architecture }}'
