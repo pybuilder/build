@@ -185,3 +185,12 @@ Default command line arguments.
     description: 'PyBuilder extra command line arguments'
     default: ""
 ```
+
+### Run a bash script before PyBuilder build
+
+```yaml
+  pre-build:
+    description: 'Run a script before PyBuilder build'
+    required: false
+    default: ""
+```
