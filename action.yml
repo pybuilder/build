@@ -48,6 +48,10 @@ inputs:
     description: 'PyBuilder extra command line arguments'
     required: false
     default: ""
+  pre-build:
+    description: 'Run a script before PyBuilder build'
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -57,15 +61,18 @@ runs:
         PV='${{inputs.python-version}}'
         PV="${PV##pypy-}"
         echo "PYTHON=python${PV%%.*}" >> $GITHUB_ENV
+
     - name: Checkout
       if: inputs.checkout == 'true'
       uses: actions/checkout@v3
+
     - name: Setup Python
       if: inputs.install-python == 'true' && (runner.os != 'macOS' || inputs.homebrew-python != 'true')
       uses: actions/setup-python@v4
       with:
         python-version: '${{ inputs.python-version }}'
         architecture: '${{ inputs.architecture }}'
+
     - name: Setup Python with Homebrew
       shell: bash
       if: inputs.install-python == 'true' && runner.os == 'macOS' && inputs.homebrew-python == 'true'
@@ -76,6 +83,7 @@ runs:
         echo "/usr/local/opt/python@${{ inputs.python-version }}/Frameworks/Python.framework/Versions/${{ inputs.python-version }}/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/libexec/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
+
     - name: Python Pre-VENV Check
       shell: bash
       run: |
@@ -85,6 +93,7 @@ runs:
         $PYTHON --version
         $PYTHON -m pip --version
         # $PYTHON -c "import sysconfig; import pprint; pprint.pprint(sysconfig.get_config_vars())"
+
     - name: Create VEnv
       shell: bash
       if: inputs.with-venv == 'true'
@@ -92,6 +101,7 @@ runs:
         $PYTHON -m pip install virtualenv
         virtualenv $HOME/.pyb
         echo "$HOME/.pyb/bin" >> $GITHUB_PATH
+
     - name: Python Post-VENV Check
       shell: bash
       run: |
@@ -101,6 +111,7 @@ runs:
         $PYTHON --version
         $PYTHON -m pip --version
         # $PYTHON -c "import sysconfig; import pprint; pprint.pprint(sysconfig.get_config_vars())"
+
     - name: Install PyBuilder
       shell: bash
       if: inputs.install-pyb == 'true'
@@ -108,6 +119,13 @@ runs:
         $PYTHON -m pip install 'pybuilder${{ inputs.pyb-version }}'
         which pyb
         pyb --version
+
+    - name: Pre-Build
+      shell: bash
+      if: inputs.pre-build != ''
+      run: |
+        ${{ inputs.pre-build }}
+
     - name: Build
       shell: bash
       run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }}
