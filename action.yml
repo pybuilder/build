@@ -98,7 +98,7 @@ runs:
       shell: bash
       if: inputs.with-venv == 'true'
       run: |
-        $PYTHON -m pip install virtualenv
+        $PYTHON -m pip install --break-system-packages virtualenv
         virtualenv $HOME/.pyb
         echo "$HOME/.pyb/bin" >> $GITHUB_PATH
 
@@ -116,7 +116,7 @@ runs:
       shell: bash
       if: inputs.install-pyb == 'true'
       run: |
-        $PYTHON -m pip install 'pybuilder${{ inputs.pyb-version }}'
+        $PYTHON -m pip install --break-system-packages 'pybuilder${{ inputs.pyb-version }}'
         which pyb
         pyb --version
 
