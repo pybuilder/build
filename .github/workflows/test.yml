@@ -15,15 +15,15 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-11
           - macos-12
+          - macos-13
         python-version:
           - '3.12'
           - '3.11'
           - '3.10'
           - '3.9'
-          - 'pypy-3.7'
           - 'pypy-3.8'
+          - 'pypy-3.9'
         with-venv:
           - 'true'
           - 'false'
@@ -31,7 +31,7 @@ jobs:
           - 'true'
           - 'false'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./
         if: |
           !(matrix.with-homebrew == 'true' && runner.os != 'macOS' ||
@@ -41,6 +41,7 @@ jobs:
              contains(matrix.python-version, '-b')
             )
            )
+
         with:
           python-version: ${{ matrix.python-version }}
           homebrew-python: ${{ matrix.with-homebrew }}
