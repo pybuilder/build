@@ -77,13 +77,14 @@ runs:
       shell: bash
       if: inputs.install-python == 'true' && runner.os == 'macOS' && inputs.homebrew-python == 'true'
       run: |
-        NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" || true
-        NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew update
+        brew upgrade
         brew uninstall --force --ignore-dependencies 'python@${{ inputs.python-version }}' || true
         brew install --overwrite 'python@${{ inputs.python-version }}'
         echo "/usr/local/opt/python@${{ inputs.python-version }}/Frameworks/Python.framework/Versions/${{ inputs.python-version }}/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/libexec/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
+        brew cleanup
 
     - name: Python Pre-VENV Check
       shell: bash
