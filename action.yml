@@ -52,6 +52,49 @@ inputs:
     description: 'Run a script before PyBuilder build'
     required: false
     default: ""
+  is-upload:
+    description: 'Whether this matrix slot runs the PyBuilder upload task'
+    required: false
+    default: 'false'
+  auto-release:
+    description: 'Enable release automation on [release] in commit message'
+    required: false
+    default: 'true'
+  auto-release-version:
+    description: 'Strip .dev from version when [release] detected'
+    required: false
+    default: 'true'
+  auto-github-release:
+    description: 'Create GitHub Release with tag (upload job only)'
+    required: false
+    default: 'true'
+  auto-bump-dev:
+    description: 'Bump to next .dev version after release (upload job only)'
+    required: false
+    default: 'true'
+  release-tag-prefix:
+    description: 'Prefix for release tags'
+    required: false
+    default: 'v'
+  release-title-template:
+    description: 'GitHub Release title template ({version} placeholder)'
+    required: false
+    default: 'Release v{version}'
+  build-py-path:
+    description: 'Path to build.py relative to repo root'
+    required: false
+    default: 'build.py'
+  github-token:
+    description: 'Token for git push and gh CLI; override with PAT for protected branches'
+    required: false
+    default: ${{ github.token }}
+outputs:
+  is-release:
+    description: 'true if [release] was detected in commit message'
+    value: ${{ steps.release-detect.outputs.is-release }}
+  release-version:
+    description: 'The release version, empty if not a release'
+    value: ${{ steps.release-commit.outputs.version }}
 runs:
   using: "composite"
   steps:
@@ -65,6 +108,20 @@ runs:
     - name: Checkout
       if: inputs.checkout == 'true'
       uses: actions/checkout@v5
+
+    - name: Detect Release
+      id: release-detect
+      shell: bash
+      if: inputs.auto-release == 'true' && github.event_name == 'push'
+      env:
+        COMMIT_MSG: ${{ github.event.head_commit.message }}
+      run: |
+        if [[ "$COMMIT_MSG" =~ \[release[[:space:]]+([0-9][0-9A-Za-z._]*)\] ]]; then
+          echo "is-release=true" >> $GITHUB_OUTPUT
+          echo "explicit-version=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+        elif [[ "$COMMIT_MSG" =~ \[release\] ]]; then
+          echo "is-release=true" >> $GITHUB_OUTPUT
+        fi
 
     - name: Setup Python
       if: inputs.install-python == 'true' && (runner.os != 'macOS' || inputs.homebrew-python != 'true')
@@ -122,6 +179,40 @@ runs:
         which pyb
         pyb --version
 
+    - name: Configure Upload
+      shell: bash
+      if: inputs.is-upload == 'true'
+      run: |
+        if [ "$IS_RELEASE" = "true" ]; then
+          if [[ "$PYB_EXTRA_ARGS" =~ (^|[[:space:]])\+?upload($|[[:space:]]) ]]; then
+            echo "ERROR: pyb-extra-args contains 'upload' or '+upload' but [release] mode is active."
+            echo "Remove the upload task from pyb-extra-args and use is-upload instead."
+            exit 1
+          fi
+        fi
+        echo "PYB_UPLOAD=+upload" >> $GITHUB_ENV
+      env:
+        IS_RELEASE: ${{ steps.release-detect.outputs.is-release }}
+        PYB_EXTRA_ARGS: ${{ inputs.pyb-extra-args }}
+
+    - name: Set Release Version
+      id: release-version
+      shell: bash
+      if: >-
+        steps.release-detect.outputs.is-release == 'true' &&
+        inputs.auto-release-version == 'true'
+      run: |
+        TOOL_PATH="${GITHUB_ACTION_PATH}/version_tool.py"
+        EXPLICIT="${{ steps.release-detect.outputs.explicit-version }}"
+        if [ -n "$EXPLICIT" ]; then
+          $PYTHON "$TOOL_PATH" set-release "${{ inputs.build-py-path }}" "$EXPLICIT"
+        else
+          $PYTHON "$TOOL_PATH" set-release "${{ inputs.build-py-path }}"
+        fi
+        VERSION_JSON=$($PYTHON "$TOOL_PATH" read "${{ inputs.build-py-path }}")
+        VERSION=$(echo "$VERSION_JSON" | $PYTHON -c "import sys,json; print(json.load(sys.stdin)['version'])")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Pre-Build
       shell: bash
       if: inputs.pre-build != ''
@@ -130,4 +221,87 @@ runs:
 
     - name: Build
       shell: bash
-      run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }}
+      run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }} $PYB_UPLOAD
+
+    - name: Release Commit and Tag
+      id: release-commit
+      shell: bash
+      if: >-
+        inputs.is-upload == 'true' &&
+        steps.release-detect.outputs.is-release == 'true'
+      run: |
+        TOOL_PATH="${GITHUB_ACTION_PATH}/version_tool.py"
+        DEFAULT_BRANCH="${{ github.ref_name }}"
+
+        VERSION="${{ steps.release-version.outputs.version }}"
+        if [ -z "$VERSION" ]; then
+          VERSION_JSON=$($PYTHON "$TOOL_PATH" read "${{ inputs.build-py-path }}")
+          VERSION=$(echo "$VERSION_JSON" | $PYTHON -c "import sys,json; print(json.load(sys.stdin)['version'])")
+        fi
+        TAG="${{ inputs.release-tag-prefix }}${VERSION}"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+
+        HAVE_RELEASE_COMMIT=false
+        if ! git diff --quiet "${{ inputs.build-py-path }}" 2>/dev/null; then
+          git add "${{ inputs.build-py-path }}"
+          git commit -m "Release version ${VERSION} [skip ci]"
+          HAVE_RELEASE_COMMIT=true
+        fi
+
+        git tag "$TAG"
+
+        PUSH_REFS=("refs/tags/${TAG}")
+        if [ "$HAVE_RELEASE_COMMIT" = "true" ]; then
+          PUSH_REFS+=("HEAD:refs/heads/${DEFAULT_BRANCH}")
+        fi
+        if git push --atomic origin "${PUSH_REFS[@]}" 2>/dev/null; then
+          echo "is-coordinator=true" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        else
+          echo "Tag ${TAG} already exists — another job is handling the release"
+          echo "is-coordinator=false" >> $GITHUB_OUTPUT
+          if [ "$HAVE_RELEASE_COMMIT" = "true" ]; then
+            git reset --soft HEAD~1
+          fi
+        fi
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Create GitHub Release
+      shell: bash
+      if: >-
+        steps.release-commit.outputs.is-coordinator == 'true' &&
+        inputs.auto-github-release == 'true'
+      run: |
+        VERSION="${{ steps.release-commit.outputs.version }}"
+        TAG="${{ steps.release-commit.outputs.tag }}"
+        TITLE="${{ inputs.release-title-template }}"
+        TITLE="${TITLE//\{version\}/$VERSION}"
+        gh release create "$TAG" \
+          --verify-tag \
+          --title "$TITLE" \
+          --generate-notes
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+
+    - name: Bump Dev Version
+      shell: bash
+      if: >-
+        steps.release-commit.outputs.is-coordinator == 'true' &&
+        inputs.auto-bump-dev == 'true'
+      run: |
+        TOOL_PATH="${GITHUB_ACTION_PATH}/version_tool.py"
+        DEFAULT_BRANCH="${{ github.ref_name }}"
+        $PYTHON "$TOOL_PATH" bump-dev "${{ inputs.build-py-path }}"
+        VERSION_JSON=$($PYTHON "$TOOL_PATH" read "${{ inputs.build-py-path }}")
+        NEW_VERSION=$(echo "$VERSION_JSON" | $PYTHON -c "import sys,json; print(json.load(sys.stdin)['version'])")
+        git add "${{ inputs.build-py-path }}"
+        git commit -m "Bump version to ${NEW_VERSION} [skip ci]"
+        git pull --rebase origin "${DEFAULT_BRANCH}"
+        git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
