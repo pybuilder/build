@@ -33,7 +33,7 @@ jobs:
           - 'true'
           - 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./
         if: |
           !(matrix.with-homebrew == 'true' && runner.os != 'macOS' ||
@@ -49,12 +49,192 @@ jobs:
           homebrew-python: ${{ matrix.with-homebrew }}
           with-venv: ${{ matrix.with-venv }}
           pyb-args: '--version'
+  test-version-tool:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
+        python-version: ['3.14', '3.12', '3.9']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test version_tool.py
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Test read
+          echo 'version = "1.0.0.dev"' > "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1.0.0.dev'; assert d['is_dev']==True"
+
+          # Test set-release strips .dev
+          python version_tool.py set-release "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1.0.0'; assert d['is_dev']==False"
+
+          # Test bump-dev
+          python version_tool.py bump-dev "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1.0.1.dev'; assert d['is_dev']==True"
+
+          # Test set-release with explicit version
+          echo 'version = "1.0.0.dev"' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py set-release "$RUNNER_TEMP/test_build.py" "2.0.0"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='2.0.0'"
+
+          # Test pre-release bump-dev
+          echo 'version = "1.0.0rc1"' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py bump-dev "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1.0.0rc2.dev'"
+
+          # Test post-release bump-dev
+          echo 'version = "1.0.0.post1"' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py bump-dev "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1.0.0.post2.dev'"
+
+          # Test epoch preservation
+          echo 'version = "1!1.0.0.dev"' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py set-release "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1!1.0.0'"
+          python version_tool.py bump-dev "$RUNNER_TEMP/test_build.py"
+          OUT=$(python version_tool.py read "$RUNNER_TEMP/test_build.py")
+          echo "$OUT" | python -c "import sys,json; d=json.load(sys.stdin); assert d['version']=='1!1.0.1.dev'"
+
+          # Test refusal on dynamic version
+          echo 'version = get_version()' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py read "$RUNNER_TEMP/test_build.py" 2>&1 && exit 1 || true
+
+          # Test refusal on conditional assignment
+          printf 'version = "1.0.0"\nif True:\n    version = "2.0.0"\n' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py read "$RUNNER_TEMP/test_build.py" 2>&1 && exit 1 || true
+
+          # Test refusal on exec after assignment
+          printf 'version = "1.0.0"\nexec("x")\n' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py read "$RUNNER_TEMP/test_build.py" 2>&1 && exit 1 || true
+
+          # Test refusal on globals() after assignment
+          printf 'version = "1.0.0"\nglobals()\n' > "$RUNNER_TEMP/test_build.py"
+          python version_tool.py read "$RUNNER_TEMP/test_build.py" 2>&1 && exit 1 || true
+
+          # Test file formatting preservation
+          cat > "$RUNNER_TEMP/test_build.py" << 'PYEOF'
+          # Comment at top
+          from pybuilder.core import use_plugin
+          use_plugin("python.core")
+
+          name = "test-project"
+          version = "1.0.0.dev"
+          summary = "A test"
+          PYEOF
+          python version_tool.py set-release "$RUNNER_TEMP/test_build.py"
+          grep -q 'name = "test-project"' "$RUNNER_TEMP/test_build.py"
+          grep -q 'summary = "A test"' "$RUNNER_TEMP/test_build.py"
+          grep -q '# Comment at top' "$RUNNER_TEMP/test_build.py"
+
+          echo "All version_tool tests passed!"
+
+  test-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create test build.py
+        shell: bash
+        run: |
+          cat > build.py << 'EOF'
+          from pybuilder.core import use_plugin
+          use_plugin("python.core")
+          name = "test-project"
+          version = "1.0.0.dev"
+          EOF
+      - uses: ./
+        with:
+          python-version: '3.14'
+          pyb-args: '--version'
+          is-upload: 'false'
+          auto-release: 'true'
+          auto-github-release: 'false'
+          auto-bump-dev: 'false'
+
+  test-is-upload:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          python-version: '3.14'
+          pyb-args: '--version'
+          is-upload: 'true'
+
+  integration-test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger integration test
+        run: |
+          gh workflow run trigger.yml \
+            -R pybuilder/build-integration-test \
+            -f action-ref="${{ github.event.pull_request.head.sha }}" \
+            -f run-id="${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ secrets.INTEGRATION_TEST_TOKEN }}
+
+      - name: Poll for result
+        run: |
+          sleep 20
+          for i in $(seq 1 50); do
+            RUN_JSON=$(gh run list -R pybuilder/build-integration-test \
+              -w "Integration Test" --json databaseId,status,conclusion \
+              -q '.[0]' 2>/dev/null || echo '{}')
+            STATUS=$(echo "$RUN_JSON" | jq -r '.status // empty')
+            if [ "$STATUS" = "completed" ]; then
+              CONCLUSION=$(echo "$RUN_JSON" | jq -r '.conclusion')
+              RUN_ID=$(echo "$RUN_JSON" | jq -r '.databaseId')
+              echo "Integration test $RUN_ID: $CONCLUSION"
+              [ "$CONCLUSION" = "success" ] && exit 0
+              gh run view "$RUN_ID" -R pybuilder/build-integration-test \
+                --log-failed || true
+              exit 1
+            fi
+            echo "Waiting... (attempt $i, status: ${STATUS:-pending})"
+            sleep 15
+          done
+          echo "Timed out"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.INTEGRATION_TEST_TOKEN }}
+
   test-summary:
     if: success() || failure()
     runs-on: ubuntu-latest
     name: Test Summary
-    needs: test
+    needs:
+      - test
+      - test-version-tool
+      - test-release
+      - test-is-upload
+      - integration-test
     steps:
       - name: Check matrix status
-        if: needs.test.result != 'success'
+        if: >-
+          needs.test.result != 'success' ||
+          needs.test-version-tool.result != 'success' ||
+          needs.test-release.result != 'success' ||
+          needs.test-is-upload.result != 'success' ||
+          (needs.integration-test.result != 'success' && needs.integration-test.result != 'skipped')
         run: exit 1
