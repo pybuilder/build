@@ -243,6 +243,10 @@ runs:
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+        # Unshallow if needed — shallow clones can cause push failures
+        if [ -f "$(git rev-parse --git-dir)/shallow" ]; then
+          git fetch --unshallow origin
+        fi
 
         HAVE_RELEASE_COMMIT=false
         if ! git diff --quiet "${{ inputs.build-py-path }}" 2>/dev/null; then
@@ -257,17 +261,28 @@ runs:
         if [ "$HAVE_RELEASE_COMMIT" = "true" ]; then
           PUSH_REFS+=("HEAD:refs/heads/${DEFAULT_BRANCH}")
         fi
-        if git push --atomic origin "${PUSH_REFS[@]}" 2>/dev/null; then
+        PUSH_STDERR=$(mktemp)
+        if git push --atomic origin "${PUSH_REFS[@]}" 2>"$PUSH_STDERR"; then
           echo "is-coordinator=true" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
         else
-          echo "Tag ${TAG} already exists — another job is handling the release"
-          echo "is-coordinator=false" >> $GITHUB_OUTPUT
-          if [ "$HAVE_RELEASE_COMMIT" = "true" ]; then
-            git reset --soft HEAD~1
+          PUSH_ERR=$(cat "$PUSH_STDERR")
+          rm -f "$PUSH_STDERR"
+          # Check if this is a tag collision (another matrix job already pushed)
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag ${TAG} already exists on remote — another job is handling the release"
+            echo "is-coordinator=false" >> $GITHUB_OUTPUT
+            if [ "$HAVE_RELEASE_COMMIT" = "true" ]; then
+              git reset --soft HEAD~1
+            fi
+          else
+            echo "::error::git push --atomic failed for refs: ${PUSH_REFS[*]}"
+            echo "::error::git stderr: ${PUSH_ERR}"
+            exit 1
           fi
         fi
+        rm -f "$PUSH_STDERR"
       env:
         GH_TOKEN: ${{ inputs.github-token }}
 
