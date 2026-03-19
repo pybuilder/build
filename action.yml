@@ -88,6 +88,14 @@ inputs:
     description: 'Token for git push and gh CLI; override with PAT for protected branches'
     required: false
     default: ${{ github.token }}
+  release-app-id:
+    description: 'GitHub App ID for generating release tokens that bypass branch protection'
+    required: false
+    default: ${{ secrets.PYBUILDER_RELEASE_APP_ID }}
+  release-app-private-key:
+    description: 'GitHub App private key (PEM) for generating release tokens'
+    required: false
+    default: ${{ secrets.PYBUILDER_RELEASE_APP_PRIVATE_KEY }}
 outputs:
   is-release:
     description: 'true if [release] was detected in commit message'
@@ -223,6 +231,18 @@ runs:
       shell: bash
       run: ${{ inputs.pyb-command }} ${{ inputs.pyb-args }} ${{ inputs.pyb-extra-args }} $PYB_UPLOAD
 
+    - name: Generate Release Token
+      id: release-token
+      if: >-
+        inputs.is-upload == 'true' &&
+        steps.release-detect.outputs.is-release == 'true' &&
+        inputs.release-app-id != '' &&
+        inputs.release-app-private-key != ''
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ inputs.release-app-id }}
+        private-key: ${{ inputs.release-app-private-key }}
+
     - name: Release Commit and Tag
       id: release-commit
       shell: bash
@@ -284,7 +304,7 @@ runs:
         fi
         rm -f "$PUSH_STDERR"
       env:
-        GH_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ steps.release-token.outputs.token || inputs.github-token }}
 
     - name: Create GitHub Release
       shell: bash
@@ -301,7 +321,7 @@ runs:
           --title "$TITLE" \
           --generate-notes
       env:
-        GH_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ steps.release-token.outputs.token || inputs.github-token }}
 
     - name: Bump Dev Version
       shell: bash
@@ -319,4 +339,4 @@ runs:
         git pull --rebase origin "${DEFAULT_BRANCH}"
         git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"
       env:
-        GH_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ steps.release-token.outputs.token || inputs.github-token }}
