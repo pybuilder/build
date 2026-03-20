@@ -91,11 +91,11 @@ inputs:
   release-app-id:
     description: 'GitHub App ID for generating release tokens that bypass branch protection'
     required: false
-    default: ${{ secrets.PYBUILDER_RELEASE_APP_ID }}
+    default: ''
   release-app-private-key:
     description: 'GitHub App private key (PEM) for generating release tokens'
     required: false
-    default: ${{ secrets.PYBUILDER_RELEASE_APP_PRIVATE_KEY }}
+    default: ''
 outputs:
   is-release:
     description: 'true if [release] was detected in commit message'
