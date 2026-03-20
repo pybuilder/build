@@ -262,6 +262,8 @@ runs:
 
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        # Remove checkout's credential helper so the app token in the URL is used
+        git config --unset-all http.https://github.com/.extraheader || true
         git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
         # Unshallow if needed — shallow clones can cause push failures
         if [ -f "$(git rev-parse --git-dir)/shallow" ]; then
