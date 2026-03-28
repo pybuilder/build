@@ -115,7 +115,9 @@ runs:
 
     - name: Checkout
       if: inputs.checkout == 'true'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: ${{ inputs.release-app-id == '' }}
 
     - name: Detect Release
       id: release-detect
