@@ -74,7 +74,7 @@ and bump to the next dev version.
 
 ### Checkout
 
-Checkout via `actions/checkout@v5` if enabled.
+Checkout via `actions/checkout@v7` if enabled.
 
 ```yaml
   checkout:
@@ -84,7 +84,7 @@ Checkout via `actions/checkout@v5` if enabled.
 
 ### Install Python
 
-Python is installed via `actions/setup-python@v6`, unless Homebrew is requested.
+Python is installed via `actions/setup-python@v7`, unless Homebrew is requested.
 
 ```yaml
   install-python:
@@ -104,7 +104,7 @@ Install Python via Homebrew instead. This only has effect on MacOS.
 
 #### Python Version to Install
 
-Python version is expected as at least `major.minor`. If using `actions/setup-python@v6` wildcards can be used
+Python version is expected as at least `major.minor`. If using `actions/setup-python@v7` wildcards can be used
 after `major`. If installing with Homebrew, only `major.minor` with no wildcards is supported.
 
 ```yaml
@@ -115,7 +115,7 @@ after `major`. If installing with Homebrew, only `major.minor` with no wildcards
 
 #### Python Architecture to Install
 
-This is passed to `actions/setup-python@v6` verbatim and has no effect with Homebrew.
+This is passed to `actions/setup-python@v7` verbatim and has no effect with Homebrew.
 
 ```yaml
   architecture:
@@ -363,7 +363,7 @@ will be blocked. Override `github-token` with a token that has bypass permission
 
 - **GitHub App token** (recommended): Use `actions/create-github-app-token` to mint a token at workflow
   runtime. Add the app to the ruleset bypass list. Per-org, no PAT, no secrets rotation.
-- **Deploy key + SSH**: Create an SSH deploy key with write access. Use `actions/checkout@v5` with
+- **Deploy key + SSH**: Create an SSH deploy key with write access. Use `actions/checkout@v7` with
   `ssh-key` for push credentials. The `github-token` input is still needed for `gh release create`.
   Add the deploy key to the ruleset bypass list.
 - **PAT**: Legacy fallback, tied to a user account. Add the user to the ruleset bypass list.
