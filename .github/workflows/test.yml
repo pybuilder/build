@@ -33,7 +33,7 @@ jobs:
           - 'true'
           - 'false'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./
         if: |
           !(matrix.with-homebrew == 'true' && runner.os != 'macOS' ||
@@ -57,8 +57,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-15-intel]
         python-version: ['3.14', '3.12', '3.9']
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Test version_tool.py
@@ -148,7 +148,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-15-intel]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Create test build.py
         shell: bash
         run: |
@@ -174,7 +174,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-15-intel]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./
         with:
           python-version: '3.14'

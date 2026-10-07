@@ -89,7 +89,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   release-app-id:
-    description: 'GitHub App ID for generating release tokens that bypass branch protection'
+    description: 'GitHub App Client ID (or legacy App ID) for generating release tokens that bypass branch protection'
     required: false
     default: ''
   release-app-private-key:
@@ -115,7 +115,7 @@ runs:
 
     - name: Checkout
       if: inputs.checkout == 'true'
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         persist-credentials: ${{ inputs.release-app-id == '' }}
 
@@ -135,7 +135,7 @@ runs:
 
     - name: Setup Python
       if: inputs.install-python == 'true' && (runner.os != 'macOS' || inputs.homebrew-python != 'true')
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '${{ inputs.python-version }}'
         architecture: '${{ inputs.architecture }}'
@@ -242,7 +242,7 @@ runs:
         inputs.release-app-private-key != ''
       uses: actions/create-github-app-token@v3
       with:
-        app-id: ${{ inputs.release-app-id }}
+        client-id: ${{ inputs.release-app-id }}
         private-key: ${{ inputs.release-app-private-key }}
 
     - name: Release Commit and Tag
