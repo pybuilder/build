@@ -44,13 +44,13 @@ jobs:
         os:
           - ubuntu-latest
         python-version:
+          - '3.15'
           - '3.14'
           - '3.13'
-          - '3.12'
     permissions:
       contents: write
     env:
-      DEPLOY_PYTHONS: "3.14"
+      DEPLOY_PYTHONS: "3.15"
       DEPLOY_OSES: "Linux"
       TWINE_USERNAME: __token__
       TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
