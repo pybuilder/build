@@ -94,7 +94,8 @@ Python is installed via `actions/setup-python@v7`, unless Homebrew is requested.
 
 #### Whether to Install Python with Homebrew
 
-Install Python via Homebrew instead. This only has effect on MacOS.
+Install Python via Homebrew instead. This only has effect on MacOS. Only `python@<version>` and its own
+dependencies are installed or upgraded; other formulae already present on the runner are left as they are.
 
 ```yaml
   homebrew-python:

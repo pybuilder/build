@@ -143,15 +143,26 @@ runs:
     - name: Setup Python with Homebrew
       shell: bash
       if: inputs.install-python == 'true' && runner.os == 'macOS' && inputs.homebrew-python == 'true'
+      env:
+        # Only touch Python and its own dependencies, not every formula on the runner image
+        HOMEBREW_NO_AUTO_UPDATE: '1'
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: '1'
+        HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        HOMEBREW_NO_ENV_HINTS: '1'
       run: |
         brew update
-        brew upgrade --overwrite
         brew uninstall --force --ignore-dependencies 'python@${{ inputs.python-version }}' || true
+        # Dependencies that `brew install` upgrades implicitly are linked without `--overwrite`,
+        # so upgrade Python's outdated dependencies explicitly first
+        PYTHON_DEPS="$(brew deps 'python@${{ inputs.python-version }}')"
+        OUTDATED_DEPS="$(brew outdated --formula --quiet | grep -Fx -f <(echo "$PYTHON_DEPS") || true)"
+        if [ -n "$OUTDATED_DEPS" ]; then
+          brew upgrade --overwrite $OUTDATED_DEPS
+        fi
         brew install --overwrite 'python@${{ inputs.python-version }}'
         echo "/usr/local/opt/python@${{ inputs.python-version }}/Frameworks/Python.framework/Versions/${{ inputs.python-version }}/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/libexec/bin" >> $GITHUB_PATH
         echo "/usr/local/opt/python@${{ inputs.python-version }}/bin" >> $GITHUB_PATH
-        brew cleanup
 
     - name: Python Pre-VENV Check
       shell: bash
